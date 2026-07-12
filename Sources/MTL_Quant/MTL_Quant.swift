@@ -1,18 +1,24 @@
 // The Swift Programming Language
 // https://docs.swift.org/swift-book
 
-
 import Foundation
 import Metal
 
-public class MTL_Quant {
-    
-    // instance init
-    private let deviceManager: DeviceManager
-    
-    // device init
-    public init(device: MTLDevice? = nil) {
-        self.deviceManager = DeviceManager(device: device)
+public final class MTL_Quant: @unchecked Sendable {
+
+    // shared mtldevice singleton lazily init
+    public static let shared: MTL_Quant = {
+        try! MTL_Quant()
+    }()
+
+    let deviceManager: DeviceManager
+
+    public init() throws {
+        self.deviceManager = try DeviceManager()
+    }
+
+    // mtldevice injection for already setup projects
+    public init(device: MTLDevice) throws {
+        self.deviceManager = try DeviceManager(device: device)
     }
 }
- 
