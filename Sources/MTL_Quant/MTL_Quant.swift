@@ -12,29 +12,30 @@ public final class MTL_Quant: @unchecked Sendable {
     }()
 
     let deviceManager: DeviceManager
+    private let turboEncoder: TurboQuantEncoder
     private let polarEncoder: PolarQuantEncoder
 
     public init() throws {
         let dm = try DeviceManager()
-        self.deviceManager  = dm
-        self.polarEncoder   = PolarQuantEncoder(manager: dm)
+        self.deviceManager = dm
+        self.turboEncoder  = TurboQuantEncoder(manager: dm)
+        self.polarEncoder  = PolarQuantEncoder(manager: dm)
     }
 
     // mtldevice injection for already setup projects
     public init(device: MTLDevice) throws {
         let dm = try DeviceManager(device: device)
-        self.deviceManager  = dm
-        self.polarEncoder   = PolarQuantEncoder(manager: dm)
+        self.deviceManager = dm
+        self.turboEncoder  = TurboQuantEncoder(manager: dm)
+        self.polarEncoder  = PolarQuantEncoder(manager: dm)
     }
 
     // MARK: - Encode
 
     public func encode(_ tensor: [Float], bits: Int, method: Method) throws -> Compressed {
         switch method {
-        case .polarQuant:
-            return try polarEncoder.encode(tensor, bits: bits)
-        case .turboQuant:
-            throw MTLQuantError.encodingFailed("TurboQuant encoder not yet implemented")
+        case .turboQuant: return try turboEncoder.encode(tensor, bits: bits)
+        case .polarQuant: return try polarEncoder.encode(tensor, bits: bits)
         }
     }
 
@@ -42,10 +43,8 @@ public final class MTL_Quant: @unchecked Sendable {
 
     public func decode(_ compressed: Compressed) throws -> [Float] {
         switch compressed.method {
-        case .polarQuant:
-            return try polarEncoder.decode(compressed)
-        case .turboQuant:
-            throw MTLQuantError.encodingFailed("TurboQuant decoder not yet implemented")
+        case .turboQuant: return try turboEncoder.decode(compressed)
+        case .polarQuant: return try polarEncoder.decode(compressed)
         }
     }
 }
