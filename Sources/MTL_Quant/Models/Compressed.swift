@@ -8,11 +8,11 @@
 import Foundation
 
 public struct Compressed: Sendable {
-    public let method: Method
+    public let method: QuantMethod
     public let packedData: Data
     public let metadata: any Metadata
 
-    public init(method: Method, packedData: Data, metadata: any Metadata) {
+    public init(method: QuantMethod, packedData: Data, metadata: any Metadata) {
         self.method = method
         self.packedData = packedData
         self.metadata = metadata

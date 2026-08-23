@@ -6,7 +6,7 @@
 //
 
 public struct BenchmarkResult: Sendable {
-    public let algorithm: Method
+    public let algorithm: QuantMethod
     public let bits: Int
     public let dim: Int
     public let mse: Float

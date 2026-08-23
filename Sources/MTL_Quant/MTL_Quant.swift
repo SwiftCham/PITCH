@@ -32,7 +32,7 @@ public final class MTL_Quant: @unchecked Sendable {
 
     // MARK: - Encode
 
-    public func encode(_ tensor: [Float], bits: Int, method: Method) throws -> Compressed {
+    public func encode(_ tensor: [Float], bits: Int, method: QuantMethod) throws -> Compressed {
         switch method {
         case .turboQuant: return try turboEncoder.encode(tensor, bits: bits)
         case .polarQuant: return try polarEncoder.encode(tensor, bits: bits)

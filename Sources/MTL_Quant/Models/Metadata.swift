@@ -8,14 +8,14 @@
 import Foundation
 
 public protocol Metadata: Sendable {
-    var method: Method { get }
+    var method: QuantMethod { get }
     var bits: Int { get }
     var dim: Int { get }
     var seed: UInt32 { get }
 }
 
 public struct TurboMetadata: Metadata {
-    public let method: Method = .turboQuant
+    public let method: QuantMethod = .turboQuant
     public let bits: Int
     public let dim: Int
     public let seed: UInt32
@@ -26,7 +26,7 @@ public struct TurboMetadata: Metadata {
 }
 
 public struct PolarMetadata: Metadata {
-    public let method: Method = .polarQuant
+    public let method: QuantMethod = .polarQuant
     public let bits: Int
     public let dim: Int
     public let seed: UInt32
