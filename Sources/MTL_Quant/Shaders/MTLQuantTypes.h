@@ -1,5 +1,4 @@
 #pragma once
-#include <stdint.h>
 
 // Passed as constant buffer to TurboQuant kernel
 typedef struct {
