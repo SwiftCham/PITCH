@@ -30,7 +30,9 @@ kernel void turbo_encode(
     device TurboMeta*      meta_out       [[ buffer(3) ]],
     constant TurboParams&  params         [[ buffer(4) ]],
     uint                   tid            [[ thread_position_in_grid ]],
-    threadgroup float*     tg_scratch     [[ threadgroup(0) ]])
+    threadgroup float*     tg_scratch     [[ threadgroup(0) ]],
+    threadgroup float*     tg_min         [[ threadgroup(1) ]],
+    threadgroup float*     tg_max         [[ threadgroup(2) ]])
 {
     const uint  dim  = params.dim;
     const uint  bits = params.bits;
@@ -52,20 +54,24 @@ kernel void turbo_encode(
     tg_scratch[tid] *= rsqrt(float(dim));
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
-    // 2. Thread 0: global min/max -> scale/offset
-    if (tid == 0u) {
-        float vmin = tg_scratch[0];
-        float vmax = tg_scratch[0];
-        for (uint i = 1u; i < dim; ++i) {
-            vmin = min(vmin, tg_scratch[i]);
-            vmax = max(vmax, tg_scratch[i]);
+    // 2. Thread 0: parralel min/max reduction
+    tg_min[tid] = tg_scratch[tid];
+    tg_max[tid] = tg_scratch[tid];
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint stride = dim >> 1u; stride > 0u; stride >>= 1u) {
+        if (tid < stride) {
+            tg_min[tid] = min(tg_min[tid], tg_min[tid + stride]);
+            tg_max[tid] = max(tg_max[tid], tg_max[tid + stride]);
         }
-        float scale = (vmax - vmin) / levels;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    if (tid == 0u) {
+        float scale = (tg_max[0] - tg_min[0]) / levels;
         if (scale == 0.0f) scale = 1.0f;          // constant guard
         tg_stats[0] = scale;
-        tg_stats[1] = vmin;
+        tg_stats[1] = tg_min[0];
         meta_out->scale  = scale;
-        meta_out->offset = vmin;
+        meta_out->offset = tg_min[0];
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
@@ -86,14 +92,20 @@ kernel void turbo_encode(
                                  memory_order_relaxed);
     }
 
-    // 5. Thread 0: residualScale = RMS(residuals)
-    tg_scratch[tid] = residual * residual;
+    // 5. Thread 0: parralel RMS(residual) tree reduction
+    tg_min[tid] = residual * residual;
     threadgroup_barrier(mem_flags::mem_threadgroup);
-    if (tid == 0u) {
-        float sum = 0.0f;
-        for (uint i = 0u; i < dim; ++i) sum += tg_scratch[i];
-        meta_out->residualScale = sqrt(sum / float(dim));
+    for (uint stride = dim >> 1u; stride > 0u; stride >>= 1u) {
+        if (tid < stride) {
+            tg_min[tid] += tg_min[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
     }
+    if (tid == 0u) {
+        meta_out->residualScale = sqrt(tg_min[0] / float(dim));
+        threadgroup_barrier(mem_flags::mem_threadgroup); //changed
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
 
     // 6. Bit packing
     const uint bit_start = tid * bits;

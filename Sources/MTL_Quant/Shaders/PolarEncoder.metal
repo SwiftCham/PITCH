@@ -29,9 +29,11 @@ static inline void pack_value(device atomic_uint* buf, uint slot, uint bits, uin
     const uint bit_start = slot * bits;
     const uint word      = bit_start >> 5u;
     const uint off       = bit_start & 31u;
-    atomic_fetch_or_explicit(&buf[word], value << off, memory_order_relaxed);
+    const uint mask      = (1u << bits) - 1u; //changed
+    const uint val       = value & mask;//changed
+    atomic_fetch_or_explicit(&buf[word], val << off, memory_order_relaxed);//changed
     if (off + bits > 32u) {
-        atomic_fetch_or_explicit(&buf[word + 1u], value >> (32u - off),
+        atomic_fetch_or_explicit(&buf[word + 1u], val >> (32u - off),
                                  memory_order_relaxed);
     }
 }
@@ -80,10 +82,16 @@ kernel void polar_encode(
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
+    
     // 3. Thread 0: magnitude = max radius
+    for (uint stride = pairs >> 1u; stride > 0u; stride >>= 1u) {
+        if (tid < stride) {
+            tg_scratch[tid] = max(tg_scratch[tid], tg_scratch[tid + stride]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
     if (tid == 0u) {
-        float rmax = 0.0f;
-        for (uint i = 0u; i < pairs; ++i) rmax = max(rmax, tg_scratch[i]);
+        float rmax = tg_scratch[0];
         meta_out->magnitude = rmax;
         tg_rscale = (rmax > 0.0f) ? rmax : 1.0f;   // zero-vector guard
     }

@@ -58,6 +58,10 @@ final class TurboQuantEncoder {
         encoder.setBuffer(metaBuf,     offset: 0, index: 3)
         encoder.setBytes(&params, length: MemoryLayout<TurboParams>.stride, index: 4)
         encoder.setThreadgroupMemoryLength(dim * MemoryLayout<Float>.stride, index: 0)
+        
+        // added for memory control with new metal adjustment
+        encoder.setThreadgroupMemoryLength(dim * MemoryLayout<Float>.stride, index: 1)
+        encoder.setThreadgroupMemoryLength(dim * MemoryLayout<Float>.stride, index: 2)
 
         // WHT requires all dim threads in exactly one threadgroup
         let tgSize = MTLSize(width: dim, height: 1, depth: 1)
