@@ -1,13 +1,13 @@
 //
-//  MTLQuantError.swift
-//  MTL_Quant
+//  PITCHError.swift
+//  PITCH
 //
 //  Created by Benjamin Stacey on 10/07/2026.
 //
 
 import Foundation
 
-public enum MTLQuantError: Error, LocalizedError, Sendable {
+public enum PITCHError: Error, LocalizedError, Sendable {
     case metalNotSupported
     case invalidInput(String)
     case invalidBitWidth(Int)

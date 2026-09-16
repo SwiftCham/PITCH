@@ -16,11 +16,11 @@ final class PolarQuantEncoder {
     func encode(_ input: [Float], bits: Int, seed: UInt32) throws -> Compressed {
         let dim = input.count
         guard dim >= 2, dim <= 1024, (dim & (dim - 1)) == 0 else {
-            throw MTLQuantError.invalidInput(
+            throw PITCHError.invalidInput(
                 "dim must be a power of two in [2, 1024], got \(dim)")
         }
         guard bits == 3 || bits == 4 || bits == 8 else {
-            throw MTLQuantError.invalidBitWidth(bits)
+            throw PITCHError.invalidBitWidth(bits)
         }
 
         let packedBytes = roundUpToMultipleOf4((dim * bits + 7) / 8)
@@ -34,7 +34,7 @@ final class PolarQuantEncoder {
             let metaBuf   = manager.device.makeBuffer(
                 length: MemoryLayout<PolarMetaBuffer>.stride,
                 options: .storageModeShared)
-        else { throw MTLQuantError.encodingFailed("Could not allocate Metal buffers") }
+        else { throw PITCHError.encodingFailed("Could not allocate Metal buffers") }
 
         // Packed buffer must be zero before dispatch - atomic OR accumulates bits
         memset(packedBuf.contents(), 0, packedBytes)
@@ -45,7 +45,7 @@ final class PolarQuantEncoder {
         guard
             let cmdBuf  = manager.commandQueue.makeCommandBuffer(),
             let encoder = cmdBuf.makeComputeCommandEncoder()
-        else { throw MTLQuantError.encodingFailed("Could not create command buffer") }
+        else { throw PITCHError.encodingFailed("Could not create command buffer") }
 
         encoder.setComputePipelineState(pipeline)
         encoder.setBuffer(inputBuf,  offset: 0, index: 0)
@@ -62,7 +62,7 @@ final class PolarQuantEncoder {
         cmdBuf.waitUntilCompleted()
 
         if let err = cmdBuf.error {
-            throw MTLQuantError.encodingFailed(err.localizedDescription)
+            throw PITCHError.encodingFailed(err.localizedDescription)
         }
 
         let meta = metaBuf.contents().load(as: PolarMetaBuffer.self)
@@ -76,7 +76,7 @@ final class PolarQuantEncoder {
 
     func decode(_ compressed: Compressed) throws -> [Float] {
         guard let metadata = compressed.metadata as? PolarMetadata else {
-            throw MTLQuantError.metadataMismatch
+            throw PITCHError.metadataMismatch
         }
         let dim  = metadata.dim
         let bits = metadata.bits
@@ -98,7 +98,7 @@ final class PolarQuantEncoder {
             let outputBuf = manager.device.makeBuffer(
                 length: dim * MemoryLayout<Float>.stride,
                 options: .storageModeShared)
-        else { throw MTLQuantError.encodingFailed("Could not allocate Metal buffers") }
+        else { throw PITCHError.encodingFailed("Could not allocate Metal buffers") }
 
         var params = PolarParams(dim: UInt32(dim), bits: UInt32(bits),
                                  seed: metadata.seed, padding: 0)
@@ -107,7 +107,7 @@ final class PolarQuantEncoder {
         guard
             let cmdBuf  = manager.commandQueue.makeCommandBuffer(),
             let encoder = cmdBuf.makeComputeCommandEncoder()
-        else { throw MTLQuantError.encodingFailed("Could not create command buffer") }
+        else { throw PITCHError.encodingFailed("Could not create command buffer") }
 
         encoder.setComputePipelineState(pipeline)
         encoder.setBuffer(packedBuf, offset: 0, index: 0)
@@ -123,7 +123,7 @@ final class PolarQuantEncoder {
         cmdBuf.waitUntilCompleted()
 
         if let err = cmdBuf.error {
-            throw MTLQuantError.encodingFailed(err.localizedDescription)
+            throw PITCHError.encodingFailed(err.localizedDescription)
         }
 
         let ptr = outputBuf.contents().bindMemory(to: Float.self, capacity: dim)
@@ -137,7 +137,7 @@ private func roundUpToMultipleOf4(_ n: Int) -> Int {
     return (n + 3) & ~3
 }
 
-// Must match PolarParams in MTLQuantTypes.h byte-for-byte
+// Must match PolarParams in PITCHTypes.h byte-for-byte
 private struct PolarParams {
     var dim:     UInt32
     var bits:    UInt32
@@ -145,7 +145,7 @@ private struct PolarParams {
     var padding: UInt32
 }
 
-// Must match PolarMeta in MTLQuantTypes.h byte-for-byte
+// Must match PolarMeta in PITCHTypes.h byte-for-byte
 private struct PolarMetaBuffer {
     var magnitude: Float
     var padding:   (Float, Float, Float)

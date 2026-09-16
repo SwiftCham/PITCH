@@ -4,26 +4,26 @@
 import PackageDescription
 
 let package = Package(
-    name: "MTL_Quant",
+    name: "PITCH",
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "MTL_Quant",
-            targets: ["MTL_Quant"]
+            name: "PITCH",
+            targets: ["PITCH"]
         ),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "MTL_Quant",
+            name: "PITCH",
             resources: [
                 .process("Shaders")
             ]
         ),
         .testTarget(
-            name: "MTL_QuantTests",
-            dependencies: ["MTL_Quant"]
+            name: "PITCHTests",
+            dependencies: ["PITCH"]
         ),
     ],
     swiftLanguageModes: [.v6]

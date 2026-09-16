@@ -4,11 +4,11 @@
 import Foundation
 import Metal
 
-public final class MTL_Quant: @unchecked Sendable {
+public final class PITCH: @unchecked Sendable {
 
     // shared mtldevice singleton lazily init
-    public static let shared: MTL_Quant = {
-        try! MTL_Quant()
+    public static let shared: PITCH = {
+        try! PITCH()
     }()
 
     let deviceManager: DeviceManager

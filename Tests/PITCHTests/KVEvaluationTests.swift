@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import MTL_Quant
+@testable import PITCH
 
 // Loads real KV-cache vectors produced by reference/extract_kv_cache.py and
 // evaluates MTL-Quant reconstruction quality against the naive baseline printed
@@ -17,7 +17,7 @@ struct KVEvaluationTests {
             ? URL(fileURLWithPath: path) : nil
     }()
 
-    let q = MTL_Quant.shared
+    let q = PITCH.shared
 
     // MARK: - Quality at each bit width
 

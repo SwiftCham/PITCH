@@ -1,6 +1,6 @@
 //
 //  BenchmarkSuite.swift
-//  MTL_Quant
+//  PITCH
 //  generates MSE, cosine similarity, inner-product distortion,
 //  true compression ratio (packed data + metadata overhead), and
 //  encode/decode throughput (GB/s) this test will always pass as it is made sheerly for benchmarking
@@ -9,7 +9,7 @@
 
 import Testing
 import Foundation
-@testable import MTL_Quant
+@testable import PITCH
 
 @Suite("Benchmark Suite - Thesis Results")
 struct BenchmarkSuite {
@@ -18,7 +18,7 @@ struct BenchmarkSuite {
     static let trialsPerCell = 30
     static let timingRepeats = 20
 
-    let q = MTL_Quant.shared
+    let q = PITCH.shared
 
     @Test func runFullBenchmark() throws {
         let pool = try loadVectorPool()

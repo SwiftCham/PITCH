@@ -1,12 +1,12 @@
 //
-//  File 2.metal
-//  MTL_Quant
+//  PolarEncoder.metal
+//  PITCH
 //
 //  Created by Benjamin Stacey on 24/06/2026.
 //
 
 #include <metal_stdlib>
-#include "MTLQuantTypes.h"
+#include "PITCHTypes.h"
 using namespace metal;
 
 

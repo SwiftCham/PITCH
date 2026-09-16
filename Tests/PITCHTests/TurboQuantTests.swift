@@ -1,12 +1,12 @@
 import Testing
 import Foundation
-@testable import MTL_Quant
+@testable import PITCH
 
 @Suite("TurboQuant round-trip")
 struct TurboQuantTests {
 
     // shared instance
-    let q = MTL_Quant.shared
+    let q = PITCH.shared
 
     // MARK: - Round-trip quality
 
@@ -58,19 +58,19 @@ struct TurboQuantTests {
     // MARK: - Error handling
 
     @Test func invalidBitWidthThrows() {
-        #expect(throws: MTLQuantError.self) {
+        #expect(throws: PITCHError.self) {
             try q.encode(randomVector(dim: 64), bits: 5, method: .turboQuant)
         }
     }
 
     @Test func nonPowerOfTwoDimThrows() {
-        #expect(throws: MTLQuantError.self) {
+        #expect(throws: PITCHError.self) {
             try q.encode(randomVector(dim: 100), bits: 4, method: .turboQuant)
         }
     }
 
     @Test func emptyInputThrows() {
-        #expect(throws: MTLQuantError.self) {
+        #expect(throws: PITCHError.self) {
             try q.encode([], bits: 4, method: .turboQuant)
         }
     }
