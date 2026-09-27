@@ -1,0 +1,33 @@
+Building for production...
+[1 / 4]
+Build complete! (0.33 secs)
+􀟈  Test run started.
+􀄵  Testing Library Version: 2084
+􀄵  Target Platform: arm64e-apple-macos14.0
+􀟈  Suite "Benchmark Suite" started.
+􀟈  Test recordEnvironment() started.
+device: Apple M4 Pro
+os: Version 27.0 (Build 26A428)
+date: 2026-09-27T13:11:22Z
+max threads per threadgroup: 1024
+􁁛  Test recordEnvironment() passed after 0.018 seconds.
+􀟈  Test accuracySweep() started.
+[accuracy] gaussian synthetics d=64 done
+[accuracy] gaussian synthetics d=128 done
+[accuracy] gaussian synthetics d=256 done
+[accuracy] gaussian synthetics d=512 done
+[accuracy] gaussian synthetics d=1024 done
+[accuracy] gpt2 keys d=64 done
+[accuracy] gpt2 values d=64 done
+[benchmark] wrote 98 rows to /Users/slowpoke/Documents/College/Thesis/MTL-Quant/results/accuracy.csv
+􁁛  Test accuracySweep() passed after 0.285 seconds.
+􀟈  Test throughputSweep() started.
+[throughput] d=64 done
+[throughput] d=128 done
+[throughput] d=256 done
+[throughput] d=512 done
+[throughput] d=1024 done
+[benchmark] wrote 480 rows to /Users/slowpoke/Documents/College/Thesis/MTL-Quant/results/throughput.csv
+􁁛  Test throughputSweep() passed after 70.970 seconds.
+􁁛  Suite "Benchmark Suite" passed after 71.275 seconds.
+􁁛  Test run with 3 tests in 1 suite passed after 71.275 seconds.

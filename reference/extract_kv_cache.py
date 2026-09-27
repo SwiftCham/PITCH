@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """
-Extract real KV-cache tensors from a transformer model for MTL-Quant evaluation.
+Extract real KV-cache vectors from a transformer model for PITCH evaluation.
 
 Saves reference/kv_vectors.json, then prints a baseline (naive uniform quantisation
 without any rotation) so you can compare directly against `swift test` output.
 
 Usage:
     pip install -r reference/requirements.txt
-    python reference/extract_kv_cache.py                 # GPT-2, no auth required
-    python reference/extract_kv_cache.py --model llama   # Llama 3.2 1B (needs HF login)
+    python reference/extract_kv_cache.py                                   # GPT-2, no auth
+    python reference/extract_kv_cache.py --model qwen --out reference/kv_vectors_qwen.json
+    python reference/extract_kv_cache.py --model llama                     # needs HF login
+
+Sampling: for every (text, layer), `--samples-per-layer` (head, token) pairs are drawn
+uniformly at random, with a fixed seed, from ALL KV heads and ALL token positions, so
+the data covers every head and position rather than the first tokens of head 0.
+Keys are taken from the cache as stored, i.e. after RoPE for models that use it.
 """
 
 import argparse
@@ -34,6 +40,7 @@ SAMPLE_TEXTS = [
 
 MODELS = {
     "gpt2":  "gpt2",
+    "qwen":  "Qwen/Qwen2.5-0.5B",
     "llama": "meta-llama/Llama-3.2-1B",
     "phi":   "microsoft/Phi-3.5-mini-instruct",
 }
@@ -89,7 +96,7 @@ def to_layerwise_kv(past_kv):
 
 # extraction
 
-def extract_vectors(model_name: str, texts: list[str], max_per_layer: int) -> list[dict]:
+def extract_vectors(model_name: str, texts: list[str], samples_per_layer: int, seed: int) -> list[dict]:
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     print(f"Loading {model_name} …")
@@ -107,6 +114,7 @@ def extract_vectors(model_name: str, texts: list[str], max_per_layer: int) -> li
     print(f"Running on: {device}")
 
     vectors: list[dict] = []
+    rng = np.random.default_rng(seed)
 
     for text_idx, text in enumerate(texts):
         print(f"  [{text_idx + 1}/{len(texts)}] '{text[:60]}…'")
@@ -126,20 +134,17 @@ def extract_vectors(model_name: str, texts: list[str], max_per_layer: int) -> li
             if not is_power_of_two(head_dim) or head_dim > 1024:
                 continue
 
-            count = 0
-            for head_idx in range(num_heads):
-                for tok_idx in range(seq_len):
-                    if count >= max_per_layer:
-                        break
-                    key_vec = k[0, head_idx, tok_idx].cpu().float().numpy()
-                    val_vec = v[0, head_idx, tok_idx].cpu().float().numpy()
-                    base = {"layer": layer_idx, "head": head_idx,
-                            "token": tok_idx, "text_idx": text_idx, "dim": int(head_dim)}
-                    vectors.append({**base, "type": "key", "data": key_vec.tolist()})
-                    vectors.append({**base, "type": "value", "data": val_vec.tolist()})
-                    count += 1
-                if count >= max_per_layer:
-                    break
+            # Uniform random (head, token) pairs over the whole layer, without replacement.
+            total = num_heads * seq_len
+            picks = rng.choice(total, size=min(samples_per_layer, total), replace=False)
+            k_cpu = k[0].cpu().float().numpy()
+            v_cpu = v[0].cpu().float().numpy()
+            for flat in sorted(picks.tolist()):
+                head_idx, tok_idx = divmod(flat, seq_len)
+                base = {"layer": layer_idx, "head": int(head_idx),
+                        "token": int(tok_idx), "text_idx": text_idx, "dim": int(head_dim)}
+                vectors.append({**base, "type": "key", "data": k_cpu[head_idx, tok_idx].tolist()})
+                vectors.append({**base, "type": "value", "data": v_cpu[head_idx, tok_idx].tolist()})
 
     return vectors
 
@@ -160,7 +165,7 @@ def print_baseline(vectors: list[dict]) -> None:
         print(f"   {bits:>4}  {np.mean(mses):>10.6f}  {np.mean(coss):>12.6f}  {len(vectors):>6}")
 
     print()
-    print("Run  swift test --filter KVEvaluation  to see MTL-Quant results.")
+    print("Run  swift test --filter KVEvaluation  to see PITCH results.")
     print("────────────────────────────────────────────────────────────────────\n")
 
 
@@ -173,17 +178,20 @@ def main() -> None:
                         help="Which model to extract from (default: gpt2)")
     parser.add_argument("--out", default="reference/kv_vectors.json",
                         help="Output JSON path (default: reference/kv_vectors.json)")
-    parser.add_argument("--max-per-layer", type=int, default=16,
-                        help="Max vectors extracted per layer (default: 16)")
+    parser.add_argument("--samples-per-layer", type=int, default=32,
+                        help="Random (head, token) pairs per layer per text (default: 32)")
+    parser.add_argument("--seed", type=int, default=0, help="Sampling seed (default: 0)")
     args = parser.parse_args()
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    vectors = extract_vectors(MODELS[args.model], SAMPLE_TEXTS, args.max_per_layer)
+    vectors = extract_vectors(MODELS[args.model], SAMPLE_TEXTS, args.samples_per_layer, args.seed)
 
     print(f"\nExtracted {len(vectors)} vectors — saving to {out_path} …")
-    payload = {"model": MODELS[args.model], "num_vectors": len(vectors), "vectors": vectors}
+    payload = {"model": MODELS[args.model], "num_vectors": len(vectors),
+               "sampling": {"samples_per_layer": args.samples_per_layer, "seed": args.seed},
+               "vectors": vectors}
     with open(out_path, "w") as f:
         json.dump(payload, f, separators=(",", ":"))
 
