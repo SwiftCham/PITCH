@@ -1,205 +1,223 @@
 //
 //  BenchmarkSuite.swift
-//  PITCH
-//  generates MSE, cosine similarity, inner-product distortion,
-//  true compression ratio (packed data + metadata overhead), and
-//  encode/decode throughput (GB/s) this test will always pass as it is made sheerly for benchmarking
-
-// TODO: REMOVE IN PROD
+//  PITCHTests
+//
+//  Generates the paper's data. Not a test, so it is SKIPPED unless enabled:
+//
+//      PITCH_RUN_BENCHMARKS=1 swift test --scratch-path /tmp/pitch-build --filter BenchmarkSuite
+//
+//  Writes to ./results/:
+//    environment.txt  device, OS, date
+//    accuracy.csv     error vs bits on Gaussian and real KV vectors
+//    throughput.csv   per-call GPU time (command-buffer timestamps) and wall time,
+//                     for the GPU-resident API and the array API, across batch sizes
 
 import Testing
 import Foundation
+import Metal
 @testable import PITCH
 
-@Suite("Benchmark Suite - Thesis Results")
+private let benchmarksEnabled = ProcessInfo.processInfo.environment["PITCH_RUN_BENCHMARKS"] == "1"
+
+@Suite("Benchmark Suite", .serialized,
+       .enabled(if: benchmarksEnabled, "set PITCH_RUN_BENCHMARKS=1 to generate results/*.csv"))
 struct BenchmarkSuite {
-    static let bitWidths = [3, 4, 8]
-    static let dims = [64, 128, 256, 512, 1024]
-    static let trialsPerCell = 30
-    static let timingRepeats = 20
 
     let q = PITCH.shared
+    static let bitWidths = Array(QuantConfig.supportedBits)
+    static let dims = [64, 128, 256, 512, 1024]
+    static let batchSizes = [1, 16, 256, 4096]
+    static let timingRepeats = 100
+    static let sustainedDispatches = 16
+    static let sustainedRepeats = 20
+    static let warmUpSeconds = 0.25
+    static let arrayRepeats = 30
 
-    @Test func runFullBenchmark() throws {
-        let pool = try loadVectorPool()
-        var results: [BenchmarkResult] = []
+    private var resultsDir: URL {
+        let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("results")
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
 
-        for method in [QuantMethod.turboQuant, QuantMethod.polarQuant] {
-            for dim in Self.dims {
+    // MARK: - Environment
+
+    @Test func recordEnvironment() throws {
+        let text = """
+        device: \(q.device.name)
+        os: \(ProcessInfo.processInfo.operatingSystemVersionString)
+        date: \(ISO8601DateFormatter().string(from: Date()))
+        max threads per threadgroup: \(q.device.maxThreadsPerThreadgroup.width)
+        """
+        try text.write(to: resultsDir.appendingPathComponent("environment.txt"), atomically: true, encoding: .utf8)
+        print(text)
+    }
+
+    // MARK: - Accuracy
+
+    @Test func accuracySweep() throws {
+        var rows = ["source,kind,method,bits,dim,count,bits_per_coord,ratio_vs_fp32,ratio_vs_fp16,rel_err,cosine,ip_rel_rmse,ip_slope"]
+
+        var sets: [KVSet] = Self.dims.map { d in
+            KVSet(model: "gaussian", kind: "synthetic", dim: d,
+                  data: TestVectors.gaussian(count: 2048, dim: d, seed: UInt64(d)))
+        }
+        sets += try loadKVSets()
+
+        for set in sets {
+            let queries = TestVectors.gaussian(count: set.count, dim: set.dim, seed: 99)
+            for method in QuantMethod.allCases {
                 for bits in Self.bitWidths {
-                    let result = try benchmarkCell(method: method, bits: bits, dim: dim, pool: pool)
-                    results.append(result)
-                    print(format(result))
+                    let batch = try q.encode(set.data, dim: set.dim, bits: bits, method: method)
+                    let out = try q.decode(batch)
+                    let (rmse, slope) = innerProductError(set.data, out, queries, dim: set.dim)
+                    rows.append([set.model, set.kind, method.rawValue, "\(bits)", "\(set.dim)", "\(set.count)",
+                                 fmt(batch.config.bitsPerCoordinate),
+                                 fmt(batch.config.compressionRatio), fmt(batch.config.compressionRatioVsFloat16),
+                                 fmt(ErrorMetrics.meanRelativeError(set.data, out, dim: set.dim)),
+                                 fmt(ErrorMetrics.meanCosine(set.data, out, dim: set.dim)),
+                                 fmt(rmse), fmt(slope)].joined(separator: ","))
                 }
             }
+            print("[accuracy] \(set.label) d=\(set.dim) done")
         }
-
-        try writeCSV(results, to: "benchmark_results.csv")
-        #expect(!results.isEmpty)
+        try write(rows, "accuracy.csv")
     }
-
-    private func benchmarkCell(method: QuantMethod, bits: Int, dim: Int, pool: [[Float]]) throws -> BenchmarkResult {
-        var totalMSE: Double = 0
-        var totalIPError: Double = 0
-        var totalCompressedBytes: Int = 0
-        var encodeTimes: [Double] = []
-        var decodeTimes: [Double] = []
-
-        let warmupVec = vector(forDim: dim, index: 0, pool: pool)
-        _ = try q.decode(q.encode(warmupVec, bits: bits, method: method))
-
-        for trial in 0..<Self.trialsPerCell {
-            let x = vector(forDim: dim, index: trial, pool: pool)
-            let y = randomGaussianVector(dim: dim, seed: UInt32(truncatingIfNeeded: 9_973 &* trial &+ 17))
-
-            let (compressed, encodeTime) = try timed { try q.encode(x, bits: bits, method: method) }
-            let (decoded, decodeTime) = try timed { try q.decode(compressed) }
-
-            totalMSE += Double(mse(x, decoded))
-            totalIPError += Double(innerProductSquaredError(x, decoded, y))
-            totalCompressedBytes += compressedSize(compressed)
-
-            if trial < Self.timingRepeats {
-                encodeTimes.append(encodeTime)
-                decodeTimes.append(decodeTime)
+    private func innerProductError(_ x: [Float], _ xHat: [Float], _ y: [Float], dim: Int) -> (Double, Double) {
+        var se = 0.0, cross = 0.0, ref = 0.0
+        let n = x.count / dim
+        for v in 0..<n {
+            var exact = 0.0, approx = 0.0
+            for i in (v * dim)..<((v + 1) * dim) {
+                exact += Double(x[i]) * Double(y[i]); approx += Double(xHat[i]) * Double(y[i])
             }
+            se += (approx - exact) * (approx - exact); cross += approx * exact; ref += exact * exact
+        }
+        return ((se / ref).squareRoot(), cross / ref)
+    }
+
+    // MARK: - Throughput
+
+    @Test func throughputSweep() throws {
+        var rows = ["method,bits,dim,batch,phase,api,gpu_us_median,gpu_us_p10,gpu_us_p90,wall_us_median,wall_us_p10,wall_us_p90,"
+                    + "sustained_gpu_us_per_call,sustained_wall_us_per_call,ns_per_vector_sustained_gpu,input_gb_per_s_sustained_gpu"]
+        let device = q.device
+
+        for dim in Self.dims {
+            for batch in Self.batchSizes {
+                let x = TestVectors.gaussian(count: batch, dim: dim, seed: 7)   // generated once per shape
+                let input = makeBuffer(device, x)
+                let output = try #require(device.makeBuffer(length: batch * dim * 4, options: .storageModeShared))
+                let bytes = Double(batch * dim * 4)
+
+                for method in QuantMethod.allCases {
+                    for bits in [2, 4, 8] {
+                        let config = try q.config(method: method, dim: dim, bits: bits)
+                        let codes = try #require(device.makeBuffer(length: batch * config.codeStride, options: .storageModeShared))
+                        let scales = try #require(device.makeBuffer(length: batch * 4, options: .storageModeShared))
+
+                        // GPU-resident API: pre-allocated buffers, one command buffer per call.
+                        let enc = try timeCalls {
+                            try q.enqueueEncode(input: input, codes: codes, scales: scales,
+                                                count: batch, config: config, commandBuffer: $0)
+                        }
+                        let dec = try timeCalls {
+                            try q.enqueueDecode(codes: codes, scales: scales, output: output,
+                                                count: batch, config: config, commandBuffer: $0)
+                        }
+                        let compressed = try q.encode(x, config: config)
+                        let arrayEnc = try wallTime { _ = try q.encode(x, config: config) }
+                        let arrayDec = try wallTime { _ = try q.decode(compressed) }
+
+                        rows.append(row(method, bits, dim, batch, "encode", "gpu_resident", enc, bytes))
+                        rows.append(row(method, bits, dim, batch, "decode", "gpu_resident", dec, bytes))
+                        rows.append(row(method, bits, dim, batch, "encode", "array", Timing(wall: arrayEnc), bytes))
+                        rows.append(row(method, bits, dim, batch, "decode", "array", Timing(wall: arrayDec), bytes))
+                    }
+                }
+            }
+            print("[throughput] d=\(dim) done")
+        }
+        try write(rows, "throughput.csv")
+    }
+
+    private struct Timing {                               // all in seconds
+        var gpu: [Double] = []
+        var wall: [Double] = []
+        var sustainedGPU: [Double] = []                    // per dispatch
+        var sustainedWall: [Double] = []                   // per dispatch
+    }
+
+    private func timeCalls(_ encode: (MTLCommandBuffer) throws -> Void) throws -> Timing {
+        var t = Timing()
+
+        // Sustained warm-up: back-to-back work until the GPU clock has settled :)
+        let warmUntil = DispatchTime.now().uptimeNanoseconds + UInt64(Self.warmUpSeconds * 1e9)
+        repeat {
+            let cb = try q.makeCommandBuffer()
+            for _ in 0..<Self.sustainedDispatches { try encode(cb) }
+            cb.commit(); cb.waitUntilCompleted()
+        } while DispatchTime.now().uptimeNanoseconds < warmUntil
+
+        for _ in 0..<Self.timingRepeats {
+            let cb = try q.makeCommandBuffer()
+            try encode(cb)
+            let start = DispatchTime.now().uptimeNanoseconds
+            cb.commit(); cb.waitUntilCompleted()
+            let end = DispatchTime.now().uptimeNanoseconds
+            guard cb.status == .completed else { throw PITCHError.encodingFailed("command buffer failed") }
+            t.gpu.append(cb.gpuEndTime - cb.gpuStartTime)
+            t.wall.append(Double(end - start) / 1e9)
         }
 
-        let n = Double(Self.trialsPerCell)
-        let avgMSE = Float(totalMSE / n)
-        let avgIPError = Float(totalIPError / n)
-        let avgCompressedBytes = Double(totalCompressedBytes) / n
-        let originalBytes = Double(dim * MemoryLayout<Float>.stride)
-        let compressionRatio = Float(originalBytes / avgCompressedBytes)
-
-        let encodeThroughput = throughputGBs(bytes: originalBytes, times: encodeTimes)
-        let decodeThroughput = throughputGBs(bytes: originalBytes, times: decodeTimes)
-
-        return BenchmarkResult(
-            algorithm: method,
-            bits: bits,
-            dim: dim,
-            mse: avgMSE,
-            innerProductError: avgIPError,
-            encodeThroughputGBs: encodeThroughput,
-            decodeThroughputGBs: decodeThroughput,
-            compressionRatio: compressionRatio
-        )
-    }
-
-    private func mse(_ a: [Float], _ b: [Float]) -> Float {
-        zip(a, b).map { ($0 - $1) * ($0 - $1) }.reduce(0, +) / Float(a.count)
-    }
-
-    private func innerProductSquaredError(_ x: [Float], _ xHat: [Float], _ y: [Float]) -> Float {
-        let exact = zip(x, y).map(*).reduce(0, +)
-        let approx = zip(xHat, y).map(*).reduce(0, +)
-        return (exact - approx) * (exact - approx)
-    }
-
-    private func compressedSize(_ c: Compressed) -> Int {
-        switch c.metadata {
-        case let t as TurboMetadata:
-            return c.packedData.count + t.residualData.count + MemoryLayout<Float>.size * 3
-        case is PolarMetadata:
-            return c.packedData.count + MemoryLayout<Float>.size
-        default:
-            return c.packedData.count
+        // sustained load
+        let k = Double(Self.sustainedDispatches)
+        for _ in 0..<Self.sustainedRepeats {
+            let start = DispatchTime.now().uptimeNanoseconds
+            let cb = try q.makeCommandBuffer()
+            for _ in 0..<Self.sustainedDispatches { try encode(cb) }
+            cb.commit(); cb.waitUntilCompleted()
+            let end = DispatchTime.now().uptimeNanoseconds
+            guard cb.status == .completed else { throw PITCHError.encodingFailed("command buffer failed") }
+            t.sustainedGPU.append((cb.gpuEndTime - cb.gpuStartTime) / k)
+            t.sustainedWall.append(Double(end - start) / 1e9 / k)
         }
+        return t
     }
 
-    private func timed<T>(_ block: () throws -> T) throws -> (T, Double) {
-        let start = DispatchTime.now()
-        let result = try block()
-        let end = DispatchTime.now()
-        let seconds = Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
-        return (result, seconds)
-    }
-
-    private func throughputGBs(bytes: Double, times: [Double]) -> Float {
-        guard !times.isEmpty else { return 0 }
-        let avgTime = times.reduce(0, +) / Double(times.count)
-        guard avgTime > 0 else { return 0 }
-        return Float((bytes / avgTime) / 1e9)
-    }
-
-    private func loadVectorPool() throws -> [[Float]] {
-        let path = FileManager.default.currentDirectoryPath.appending("/reference/kv_vectors.json")
-        guard FileManager.default.fileExists(atPath: path) else {
-            print("[BenchmarkSuite] reference/kv_vectors.json not found - using synthetic Gaussian vectors")
-            return []
+    private func wallTime(_ block: () throws -> Void) throws -> [Double] {
+        for _ in 0..<3 { try block() }                                          // warm-up
+        var out: [Double] = []
+        for _ in 0..<Self.arrayRepeats {
+            let start = DispatchTime.now().uptimeNanoseconds
+            try block()
+            out.append(Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9)
         }
-        struct KVVector: Decodable { let data: [Float] }
-        struct KVPayload: Decodable { let vectors: [KVVector] }
-        let raw = try Data(contentsOf: URL(fileURLWithPath: path))
-        let payload = try JSONDecoder().decode(KVPayload.self, from: raw)
-        print("[BenchmarkSuite] Loaded \(payload.vectors.count) real KV vectors from \(path)")
-        return payload.vectors.map { $0.data }
+        return out
     }
 
-    private func vector(forDim dim: Int, index: Int, pool: [[Float]]) -> [Float] {
-        let candidates = pool.filter { $0.count == dim }
-        if !candidates.isEmpty {
-            return candidates[index % candidates.count]
-        }
-        return randomGaussianVector(dim: dim, seed: UInt32(truncatingIfNeeded: 1_000_003 &* index &+ dim))
+    private func row(_ m: QuantMethod, _ bits: Int, _ dim: Int, _ batch: Int, _ phase: String, _ api: String,
+                     _ t: Timing, _ bytes: Double) -> String {
+        func us(_ v: [Double], _ p: Double) -> String { v.isEmpty ? "" : fmt(percentile(v, p) * 1e6) }
+        let sGPU: Double? = t.sustainedGPU.isEmpty ? nil : percentile(t.sustainedGPU, 0.5)
+        return [m.rawValue, "\(bits)", "\(dim)", "\(batch)", phase, api,
+                us(t.gpu, 0.5), us(t.gpu, 0.1), us(t.gpu, 0.9),
+                us(t.wall, 0.5), us(t.wall, 0.1), us(t.wall, 0.9),
+                us(t.sustainedGPU, 0.5), us(t.sustainedWall, 0.5),
+                sGPU.map { fmt($0 * 1e9 / Double(batch)) } ?? "",
+                sGPU.map { fmt(bytes / $0 / 1e9) } ?? ""].joined(separator: ",")
     }
 
-    private func randomGaussianVector(dim: Int, seed: UInt32) -> [Float] {
-        var generator = SeededGenerator(seed: seed)
-        var result = [Float](repeating: 0, count: dim)
-        var i = 0
-        while i < dim {
-            let u1 = Float.random(in: 1e-9...1, using: &generator)
-            let u2 = Float.random(in: 0...1, using: &generator)
-            let r = sqrt(-2 * log(u1))
-            let theta = 2 * Float.pi * u2
-            result[i] = r * cos(theta)
-            if i + 1 < dim { result[i + 1] = r * sin(theta) }
-            i += 2
-        }
-        return result
+    private func percentile(_ v: [Double], _ p: Double) -> Double {
+        guard !v.isEmpty else { return .nan }
+        let s = v.sorted()
+        return s[min(s.count - 1, Int((Double(s.count - 1) * p).rounded()))]
     }
 
-    private func format(_ r: BenchmarkResult) -> String {
-        let alg = r.algorithm.rawValue.padding(toLength: 12, withPad: " ", startingAt: 0)
-        return "[\(alg)] dim=\(String(format: "%4d", r.dim))  bits=\(r.bits)  " +
-               "MSE=\(String(format: "%.6f", r.mse))  " +
-               "IPErr=\(String(format: "%.6f", r.innerProductError))  " +
-               "ratio=\(String(format: "%.2fx", r.compressionRatio))  " +
-               "enc=\(String(format: "%.2f", r.encodeThroughputGBs))GB/s  " +
-               "dec=\(String(format: "%.2f", r.decodeThroughputGBs))GB/s"
-    }
+    private func fmt(_ v: Double) -> String { String(format: "%.6g", v) }
 
-    private func writeCSV(_ results: [BenchmarkResult], to filename: String) throws {
-        var lines = ["algorithm,bits,dim,mse,inner_product_error,compression_ratio,encode_gbs,decode_gbs"]
-        for r in results {
-            lines.append([
-                r.algorithm.rawValue,
-                "\(r.bits)",
-                "\(r.dim)",
-                "\(r.mse)",
-                "\(r.innerProductError)",
-                "\(r.compressionRatio)",
-                "\(r.encodeThroughputGBs)",
-                "\(r.decodeThroughputGBs)"
-            ].joined(separator: ","))
-        }
-        let csv = lines.joined(separator: "\n")
-        let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent(filename)
-        try csv.write(to: url, atomically: true, encoding: .utf8)
-        print("[BenchmarkSuite] Wrote \(results.count) rows to \(url.path)")
-    }
-}
-
-struct SeededGenerator: RandomNumberGenerator {
-    private var state: UInt64
-    init(seed: UInt32) { state = UInt64(seed) &+ 0x9E3779B97F4A7C15 }
-    mutating func next() -> UInt64 {
-        state ^= state << 13
-        state ^= state >> 7
-        state ^= state << 17
-        return state
+    private func write(_ rows: [String], _ name: String) throws {
+        let url = resultsDir.appendingPathComponent(name)
+        try rows.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+        print("[benchmark] wrote \(rows.count - 1) rows to \(url.path)")
     }
 }
