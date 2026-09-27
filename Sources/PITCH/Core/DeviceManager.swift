@@ -4,87 +4,69 @@
 //
 //  Created by Benjamin Stacey on 24/06/2026.
 //
+
 import Metal
 import Foundation
 
+// Owns the Metal device, command queue, compiled library and pipeline cache.
 final class DeviceManager: @unchecked Sendable {
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
-    private var pipelineCache: [String: MTLComputePipelineState] = [:]
-    private let cacheLock = NSLock()
 
-    init() throws {
+    private var library: MTLLibrary?
+    private var pipelineCache: [String: MTLComputePipelineState] = [:]
+    private let lock = NSLock()
+
+    static let shaderFileName = "PITCHKernels"
+
+    convenience init() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw PITCHError.metalNotSupported
         }
-        guard let queue = device.makeCommandQueue() else {
-            throw PITCHError.encodingFailed("Could not create command queue")
-        }
-        self.device = device
-        self.commandQueue = queue
+        try self.init(device: device)
     }
 
     init(device: MTLDevice) throws {
         guard let queue = device.makeCommandQueue() else {
-            throw PITCHError.encodingFailed("Could not create command queue")
+            throw PITCHError.metalNotSupported
         }
         self.device = device
         self.commandQueue = queue
     }
 
+    // Compiled pipeline for a kernel, created once and cached
     func pipeline(named name: String) throws -> MTLComputePipelineState {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
 
         if let cached = pipelineCache[name] { return cached }
-
-        let library = try loadLibrary(forKernel: name)
-        guard let function = library.makeFunction(name: name) else {
-            throw PITCHError.shaderCompilationFailed("Function not found: \(name)")
+        let lib = try loadLibraryLocked()
+        guard let function = lib.makeFunction(name: name) else {
+            throw PITCHError.shaderCompilationFailed("function \(name) not found in \(Self.shaderFileName).metal")
         }
         let pipeline = try device.makeComputePipelineState(function: function)
         pipelineCache[name] = pipeline
         return pipeline
     }
 
-    // Metal struct definitions which are substituted for #include "PITCHTypes.h" during runtime compilation
-    private static let metalTypesSource = """
-        typedef struct { uint dim; uint bits; uint seed; uint padding; } TurboParams;
-        typedef struct { float scale; float offset; float residualScale; float padding; } TurboMeta;
-        typedef struct { uint dim; uint bits; uint seed; uint padding; } PolarParams;
-        typedef struct { float magnitude; float padding[3]; } PolarMeta;
-        """
+    private func loadLibraryLocked() throws -> MTLLibrary {
+        if let library { return library }
 
-    // Kernel function maps
-    private let kernelToFile: [String: String] = [
-        "turbo_encode": "TurboEncoder",
-        "turbo_decode": "TurboDecoder",
-        "polar_encode": "PolarEncoder",
-        "polar_decode": "PolarDecoder"
-    ]
-
-    private func loadLibrary(forKernel name: String) throws -> MTLLibrary {
-        if let lib = try? device.makeDefaultLibrary(bundle: .module) {
+        if let lib = try? device.makeDefaultLibrary(bundle: .module),
+           lib.functionNames.contains("turbo_encode") {
+            library = lib
             return lib
         }
-        guard let fileName = kernelToFile[name] else {
-            throw PITCHError.shaderCompilationFailed("No source file registered for kernel: \(name)")
+        guard let url = Bundle.module.url(forResource: Self.shaderFileName, withExtension: "metal"),
+              let source = try? String(contentsOf: url, encoding: .utf8) else {
+            throw PITCHError.shaderCompilationFailed("could not read \(Self.shaderFileName).metal from the bundle")
         }
-        guard let metalURL = Bundle.module.url(forResource: fileName, withExtension: "metal"),
-              var source = try? String(contentsOf: metalURL, encoding: .utf8) else {
-            throw PITCHError.shaderCompilationFailed("Could not read \(fileName).metal from bundle")
-        }
-
-        // Runtime Metal compilation has no access to system C headers (no stdint.h)
-        source = source.replacingOccurrences(
-            of: "#include \"PITCHTypes.h\"",
-            with: Self.metalTypesSource
-        )
-
         do {
-            return try device.makeLibrary(source: source, options: nil)
+            let lib = try device.makeLibrary(source: source, options: nil)
+            library = lib
+            return lib
         } catch {
-            throw PITCHError.shaderCompilationFailed("\(fileName).metal: \(error.localizedDescription)")
+            throw PITCHError.shaderCompilationFailed("\(Self.shaderFileName).metal: \(error.localizedDescription)")
         }
     }
 }
