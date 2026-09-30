@@ -4,6 +4,6 @@ authors:
   - family-names: "Stacey"
     given-names: "Benjamin"
 title: "PITCH: An Open-Source Metal Library for KV-Cache Quantization on Apple Silicon"
-version: "1.0.0"
+version: "1.0.3"
 date-released: 2026-09-30 
 url: "https://github.com/SwiftCham/PITCH"
