@@ -1,0 +1,2 @@
+model,q_energy_top4,k_energy_top4,q_energy_top4_max,k_energy_top4_max,uniform_top4
+Qwen/Qwen2.5-1.5B,0.5508200761667464,0.36024781004632067,0.7863325019889482,0.8181781681278001,0.03125

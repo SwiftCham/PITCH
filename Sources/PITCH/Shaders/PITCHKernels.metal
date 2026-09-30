@@ -244,3 +244,82 @@ kernel void polar_decode(
 
     output[vec * dim + tid] = rand_sign(p.seed, tid) * scratch[tid] * rsqrt(float(dim));
 }
+
+// MARK: - Per-channel keys (KIVI-style)
+
+// Mirrored by `ChannelParams`
+struct ChannelParams {
+    uint dim;         // 1...1024
+    uint bits;        // 2...8
+    uint group_size;  // tokens per group
+    uint count;       // tokens in the call
+};
+static_assert(sizeof(ChannelParams) == 16, "ChannelParams must be 16 bytes to match Swift");
+
+// Encode: one threadgroup per group of tokens, one thread per channel. Each thread scans its
+// channel over the group for the range, then the group's tokens are quantised and packed one
+// token at a time, reusing the per-vector packing.
+kernel void channel_encode(
+    const device float*     input    [[ buffer(0) ]],
+    device uint*            codes    [[ buffer(1) ]],
+    device half*            ranges   [[ buffer(2) ]],
+    constant ChannelParams& p        [[ buffer(3) ]],
+    uint                    tid      [[ thread_position_in_threadgroup ]],
+    uint                    group    [[ threadgroup_position_in_grid ]],
+    threadgroup uint*       tg_codes [[ threadgroup(0) ]])
+{
+    const uint dim   = p.dim;
+    const uint bits  = p.bits;
+    const uint first = group * p.group_size;
+    if (first >= p.count) { return; }                        // uniform across the threadgroup
+    const uint n      = min(p.group_size, p.count - first);
+    const uint words  = words_per_vector(dim, bits);
+    const float levels = float((1u << bits) - 1u);
+
+    // Channel range over the group. Initialised from the first token, not +-infinity
+    float lo = input[first * dim + tid];
+    float hi = lo;
+    for (uint t = 1u; t < n; ++t) {
+        const float x = input[(first + t) * dim + tid];
+        lo = min(lo, x);
+        hi = max(hi, x);
+    }
+    const half lo16 = half(lo);                              // round to nearest even
+    const half hi16 = half(hi);
+    ranges[group * 2u * dim + tid]       = lo16;
+    ranges[group * 2u * dim + dim + tid] = hi16;
+
+    const float base = float(lo16);
+    float step = (float(hi16) - base) / levels;
+    if (step == 0.0f) { step = 1.0f; }                       // constant channel: every code is 0
+
+    for (uint t = 0u; t < n; ++t) {
+        const float x = input[(first + t) * dim + tid];
+        tg_codes[tid] = uint(clamp(floor((x - base) / step + 0.5f), 0.0f, levels));
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        pack_codes(tg_codes, codes + (first + t) * words, tid, dim, bits, words);
+        threadgroup_barrier(mem_flags::mem_threadgroup);     // packing done before codes are reused
+    }
+}
+
+// Decode: one threadgroup per token, one thread per channel, as for the per-vector decoders.
+kernel void channel_decode(
+    const device uint*      codes    [[ buffer(0) ]],
+    const device half*      ranges   [[ buffer(1) ]],
+    device float*           output   [[ buffer(2) ]],
+    constant ChannelParams& p        [[ buffer(3) ]],
+    uint                    tid      [[ thread_position_in_threadgroup ]],
+    uint                    tok      [[ threadgroup_position_in_grid ]])
+{
+    if (tok >= p.count) { return; }
+    const uint dim   = p.dim;
+    const uint bits  = p.bits;
+    const uint group = tok / p.group_size;
+
+    const float base = float(ranges[group * 2u * dim + tid]);
+    float step = (float(ranges[group * 2u * dim + dim + tid]) - base) / float((1u << bits) - 1u);
+    if (step == 0.0f) { step = 1.0f; }
+
+    const uint code = unpack_code(codes + tok * words_per_vector(dim, bits), tid, bits);
+    output[tok * dim + tid] = float(code) * step + base;
+}

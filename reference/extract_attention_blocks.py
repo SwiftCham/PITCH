@@ -7,6 +7,7 @@ import torch
 MODELS = {
     "gpt2":  "gpt2",
     "qwen":  "Qwen/Qwen2.5-0.5B",
+    "qwen15": "Qwen/Qwen2.5-1.5B",
     "llama": "meta-llama/Llama-3.2-1B",
 }
 

@@ -81,3 +81,7 @@ Notes/.obsidian/types.json
 Notes/.obsidian/workspace.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .aider*
+/reference/__pycache__
+venv/
+attn_blocks_*.json
+kv_vectors*.json

@@ -9,8 +9,6 @@ import pitch_reference as R
 from attention_extra import turbo, rotate_rtn, per_channel_groups, per_token_fp16, centred_turbo
 from attention_eval import minmax_rtn
 
-# ----------------------------------------------------------------------------- configurations
-# name -> (key compressor, value compressor); each maps an (n, d) float64 array to its reconstruction.
 def make_configs(G):
     T = lambda b: (lambda X: turbo(X, b))
     C = {"exact": (None, None), "fp16": ("fp16", "fp16")}
@@ -53,7 +51,6 @@ def pitch_attention(module, query, key, value, attention_mask, **kwargs):
 
 AttentionInterface.register("pitch", pitch_attention)
 
-# ----------------------------------------------------------------------------- evaluation
 def load_tokens(tok, n_tokens):
     from datasets import load_dataset
     # Newer huggingface_hub versions reject un-namespaced ids; "Salesforce/wikitext" is the canonical repo.

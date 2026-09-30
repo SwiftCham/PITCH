@@ -1,22 +1,4 @@
 #!/usr/bin/env python3
-"""
-Extract real KV-cache vectors from a transformer model for PITCH evaluation.
-
-Saves reference/kv_vectors.json, then prints a baseline (naive uniform quantisation
-without any rotation) so you can compare directly against `swift test` output.
-
-Usage:
-    pip install -r reference/requirements.txt
-    python reference/extract_kv_cache.py                                   # GPT-2, no auth
-    python reference/extract_kv_cache.py --model qwen --out reference/kv_vectors_qwen.json
-    python reference/extract_kv_cache.py --model llama                     # needs HF login
-
-Sampling: for every (text, layer), `--samples-per-layer` (head, token) pairs are drawn
-uniformly at random, with a fixed seed, from ALL KV heads and ALL token positions, so
-the data covers every head and position rather than the first tokens of head 0.
-Keys are taken from the cache as stored, i.e. after RoPE for models that use it.
-"""
-
 import argparse
 import json
 import sys
@@ -42,6 +24,7 @@ MODELS = {
     "gpt2":  "gpt2",
     "qwen":  "Qwen/Qwen2.5-0.5B",
     "llama": "meta-llama/Llama-3.2-1B",
+    "qwen15": "Qwen/Qwen2.5-1.5B",
     "phi":   "microsoft/Phi-3.5-mini-instruct",
 }
 
