@@ -1,4 +1,4 @@
-# PITCH
+# PITCH. [![DOI](https://zenodo.org/badge/1264261940.svg)](https://doi.org/10.5281/zenodo.23065071)
 
 **Parallel, In-memory Transformer Compression Header**: KV-cache quantization for Apple Silicon, written in Swift and Metal.
 
