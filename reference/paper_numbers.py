@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Prints the numbers the paper quotes from the results CSVs.
 
-    python3 paper_numbers.py matched [results/rate_distortion.csv]
-        Error relative to rotate-and-round at equal stored bits (Table 3 and Section 6.2).
+    python3 paper_numbers.py matched [results/rate_distortion.csv] [--ref rotate_rtn_fp16]
+        Error relative to a reference method at equal stored bits, and the bits each method
+        saves or loses against it at equal error (Table 3 and Section 6.2). The default
+        reference is rotate-and-round with its range stored in fp16.
 
     python3 paper_numbers.py speedup results/throughput.csv results/pytorch_throughput.csv
         Speed-up of PITCH over PyTorch/MPS, single-call costs and dispatch overhead (Section 6.5).
@@ -14,9 +16,9 @@ import argparse, csv, statistics as st, sys
 import numpy as np
 
 def matched(a):
-    REF = "rotate_rtn"
-    ORDER = ["naive_rtn", "pitch_turboquant", "pitch_polarquant", "pitch_polarquant_seed_per_vector",
-             "polar_recursive_prototype"]
+    REF = a.ref
+    ORDER = [m for m in ["naive_rtn_fp16", "naive_rtn", "rotate_rtn_fp16", "rotate_rtn", "pitch_turboquant", "turboquant_fp16_norm",
+                         "pitch_polarquant", "pitch_polarquant_seed_per_vector", "polar_recursive_prototype"] if m != REF]
     rows = list(csv.DictReader(open(a.csv or "results/rate_distortion.csv")))
 
     def curve(model, kind, method):
@@ -30,8 +32,17 @@ def matched(a):
             return np.nan
         return float(np.exp(np.interp(bpc, c[:, 0], np.log(c[:, 1]))))
 
+    def bits_at(model, kind, method, err):
+        """Stored bits a method needs to reach a given error (log-linear, nan outside its range)."""
+        c = curve(model, kind, method)
+        le = np.log(c[:, 1])
+        if len(c) == 0 or not (le.min() - 1e-9 <= np.log(err) <= le.max() + 1e-9):
+            return np.nan
+        order = np.argsort(le)
+        return float(np.interp(np.log(err), le[order], c[order, 0]))
+
     models = list(dict.fromkeys(r["model"] for r in rows))
-    print("1) error / rotate-and-round error at equal stored bits (Table 3)")
+    print(f"1) error / {REF} error at equal stored bits (Table 3)")
     for model in models:
         for kind in ("key", "value"):
             print(f"\n  {model} {kind}")
@@ -42,6 +53,18 @@ def matched(a):
                     continue
                 per = "  ".join(f"{b:.2f}b:{r:.2f}" for b, r in used)
                 print(f"    {m:34s} mean {np.mean([r for _, r in used]):5.2f}   [{per}]")
+
+    print(f"\n2) bits saved against {REF} at equal error (positive: fewer bits than {REF})")
+    for model in models:
+        for kind in ("key", "value"):
+            print(f"\n  {model} {kind}")
+            for m in ORDER:
+                pts = [(bpc, bits_at(model, kind, REF, err) - bpc) for bpc, err in curve(model, kind, m)]
+                used = [(b, s) for b, s in pts if not np.isnan(s)]
+                if not used:
+                    continue
+                per = "  ".join(f"{b:.2f}b:{s:+.2f}" for b, s in used)
+                print(f"    {m:34s} mean {np.mean([s for _, s in used]):+5.2f}   [{per}]")
 
 def speedup(a):
     key = lambda r: (r["method"], r["bits"], r["dim"], r["batch"], r["phase"])
@@ -80,7 +103,6 @@ def speedup(a):
     to = st.median(float(T[k]["sustained_wall_us_per_call"]) for k in b1)
     print(f"sustained per-dispatch overhead at batch 1: PITCH {po:.1f} us vs PyTorch {to:.1f} us")
 
-
 def perchannel(a):
     rows = list(csv.DictReader(open(a.csv or "results/per_channel_throughput.csv")))
     get = lambda m, b, d, n, ph, col: float(next(r[col] for r in rows if (r["method"], r["bits"], r["dim"], r["tokens"], r["phase"])
@@ -109,7 +131,7 @@ def perchannel(a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="what", required=True)
-    p = sub.add_parser("matched"); p.add_argument("csv", nargs="?")
+    p = sub.add_parser("matched"); p.add_argument("csv", nargs="?"); p.add_argument("--ref", default="rotate_rtn_fp16")
     p = sub.add_parser("speedup"); p.add_argument("pitch"); p.add_argument("torch")
     p = sub.add_parser("perchannel"); p.add_argument("csv", nargs="?")
     a = ap.parse_args()

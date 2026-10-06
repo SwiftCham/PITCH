@@ -7,6 +7,7 @@ paper_figures.py: regenerate every data figure in the paper from the results CSV
     Figure 6  attention_kl.pdf     attention.csv + attention_extra.csv     (attention_eval.py, attention_extra.py)
     Figure 7  throughput.pdf       throughput.csv + pytorch_throughput.csv (Swift benchmark, pytorch_mps_benchmark.py)
 
+Usage (from the repo root):
     python3 reference/paper_figures.py --results results reference/results --out paper/images
     python3 reference/paper_figures.py --results results reference/results --out paper/images --only attention
 """
@@ -32,6 +33,7 @@ class Missing(Exception):
 
 
 def finder(dirs):
+    """Return read(name): the rows of the first CSV called `name` found in `dirs`."""
     def read(name, required=True):
         for d in dirs:
             p = Path(d) / name
@@ -63,11 +65,13 @@ def theorem1(read, out):
 def rate_distortion(read, out):
     rows = read("rate_distortion.csv")
     style = {  # method: (label, colour, marker, linestyle)
-        "naive_rtn": ("Round-to-nearest, no rotation", C["naive_rtn"], "o", "--"),
-        "rotate_rtn": ("Rotate + round-to-nearest", C["rotate_rtn"], "s", "-"),
+        # min/max baselines with their range in fp16 (b + 32/d), the same storage as TurboQuant's fp32 norm
+        "naive_rtn_fp16": ("Round-to-nearest, no rotation", C["naive_rtn"], "o", "--"),
+        "rotate_rtn_fp16": ("Rotate + round-to-nearest", C["rotate_rtn"], "s", "-"),
         "pitch_polarquant_seed_per_vector": ("PITCH PolarQuant, seed stored per vector", C["polarQuant"], "^", ":"),
         "pitch_polarquant": ("PITCH PolarQuant (single level)", C["polarQuant"], "^", "-"),
         "pitch_turboquant": ("PITCH TurboQuant-MSE", C["turboQuant"], "D", "-"),
+        "turboquant_fp16_norm": ("TurboQuant-MSE, norm in fp16", C["turboQuant"], "d", "--"),
         "polar_recursive_prototype": ("Recursive PolarQuant (Python prototype)", C["recursive"], "P", "--"),
     }
     fig, axes = plt.subplots(2, 2, figsize=(FULL, 5.0), sharex=True, sharey=True)
@@ -96,6 +100,9 @@ def rate_distortion(read, out):
 
 def attention(read, out):
     rows = read("attention.csv")
+    # Per-channel keys (KIVI-style, as implemented in PITCH) with per-token values, written by
+    # attention_extra.py for GPT-2 and Qwen2.5-0.5B (not the _qwen15 file). Same axes:
+    # ratio_vs_fp16 and mean KL over queries.
     X = read("attention_extra.csv", required=False)
     if not X:
         print("  note: attention_extra.csv not found; Figure 6 drawn without per-channel keys")

@@ -13,6 +13,20 @@ gpt2,key,rotate_rtn,5,6.0,0.0018383146230618785
 gpt2,key,rotate_rtn,6,7.0,0.0004419864222451074
 gpt2,key,rotate_rtn,7,8.0,0.00010907120456505347
 gpt2,key,rotate_rtn,8,9.0,2.7203246063030886e-05
+gpt2,key,naive_rtn_fp16,2,2.5,0.29295250312091903
+gpt2,key,naive_rtn_fp16,3,3.5,0.05304347410442554
+gpt2,key,naive_rtn_fp16,4,4.5,0.011585427912555664
+gpt2,key,naive_rtn_fp16,5,5.5,0.0027104747358805
+gpt2,key,naive_rtn_fp16,6,6.5,0.000660604483616941
+gpt2,key,naive_rtn_fp16,7,7.5,0.00016135764971805713
+gpt2,key,naive_rtn_fp16,8,8.5,4.0153706760626e-05
+gpt2,key,rotate_rtn_fp16,2,2.5,0.19803561933979516
+gpt2,key,rotate_rtn_fp16,3,3.5,0.0359674222135489
+gpt2,key,rotate_rtn_fp16,4,4.5,0.007850271610363755
+gpt2,key,rotate_rtn_fp16,5,5.5,0.0018383833868259821
+gpt2,key,rotate_rtn_fp16,6,6.5,0.0004419810657873997
+gpt2,key,rotate_rtn_fp16,7,7.5,0.00010909036216032429
+gpt2,key,rotate_rtn_fp16,8,8.5,2.7206413219826307e-05
 gpt2,key,pitch_turboquant,2,2.5,0.11237033956896486
 gpt2,key,pitch_turboquant,3,3.5,0.032556293489010554
 gpt2,key,pitch_turboquant,4,4.5,0.008887717172493448
@@ -20,6 +34,13 @@ gpt2,key,pitch_turboquant,5,5.5,0.0023219453919562675
 gpt2,key,pitch_turboquant,6,6.5,0.000597406707425238
 gpt2,key,pitch_turboquant,7,7.5,0.0001510439486851045
 gpt2,key,pitch_turboquant,8,8.5,3.8088439601925735e-05
+gpt2,key,turboquant_fp16_norm,2,2.25,0.11237066729464604
+gpt2,key,turboquant_fp16_norm,3,3.25,0.03255613775983458
+gpt2,key,turboquant_fp16_norm,4,4.25,0.008887253450219698
+gpt2,key,turboquant_fp16_norm,5,5.25,0.002322118993334832
+gpt2,key,turboquant_fp16_norm,6,6.25,0.000597427191982731
+gpt2,key,turboquant_fp16_norm,7,7.25,0.0001511043885507004
+gpt2,key,turboquant_fp16_norm,8,8.25,3.813788017151691e-05
 gpt2,key,pitch_polarquant,2,2.5,0.23683835697643021
 gpt2,key,pitch_polarquant,3,3.5,0.05774650202492638
 gpt2,key,pitch_polarquant,4,4.5,0.014242946279196266
@@ -34,9 +55,6 @@ gpt2,key,pitch_polarquant_seed_per_vector,5,6.0,0.003549055134585561
 gpt2,key,pitch_polarquant_seed_per_vector,6,7.0,0.0008909636707800125
 gpt2,key,pitch_polarquant_seed_per_vector,7,8.0,0.00022000113084062438
 gpt2,key,pitch_polarquant_seed_per_vector,8,9.0,5.527668192573253e-05
-gpt2,key,legacy_turbo_minmax_residual,3,6.0,0.010472236220703276
-gpt2,key,legacy_turbo_minmax_residual,4,7.0,0.002281829668998771
-gpt2,key,legacy_turbo_minmax_residual,8,11.0,7.87393902863424e-06
 gpt2,key,polar_recursive_prototype,"(2, 1)",1.9844,0.26471688871898796
 gpt2,key,polar_recursive_prototype,"(3, 2)",2.9688,0.07228925886234296
 gpt2,key,polar_recursive_prototype,"(4, 2)",3.4688,0.03429013553677861
@@ -58,6 +76,20 @@ gpt2,value,rotate_rtn,5,6.0,0.0018543264850610238
 gpt2,value,rotate_rtn,6,7.0,0.00044606100700545864
 gpt2,value,rotate_rtn,7,8.0,0.00011027296186950701
 gpt2,value,rotate_rtn,8,9.0,2.732221223947627e-05
+gpt2,value,naive_rtn_fp16,2,2.5,0.25462034689129914
+gpt2,value,naive_rtn_fp16,3,3.5,0.047282410308123
+gpt2,value,naive_rtn_fp16,4,4.5,0.010297990566289557
+gpt2,value,naive_rtn_fp16,5,5.5,0.0024194016695133795
+gpt2,value,naive_rtn_fp16,6,6.5,0.0005852998744463325
+gpt2,value,naive_rtn_fp16,7,7.5,0.00014389409658914214
+gpt2,value,naive_rtn_fp16,8,8.5,3.575097381390177e-05
+gpt2,value,rotate_rtn_fp16,2,2.5,0.1989167491986321
+gpt2,value,rotate_rtn_fp16,3,3.5,0.036254675973368955
+gpt2,value,rotate_rtn_fp16,4,4.5,0.00789479940471612
+gpt2,value,rotate_rtn_fp16,5,5.5,0.001854398107486834
+gpt2,value,rotate_rtn_fp16,6,6.5,0.0004461332554438433
+gpt2,value,rotate_rtn_fp16,7,7.5,0.00011027869195841216
+gpt2,value,rotate_rtn_fp16,8,8.5,2.7311855837372603e-05
 gpt2,value,pitch_turboquant,2,2.5,0.11286874530267017
 gpt2,value,pitch_turboquant,3,3.5,0.03288633882551511
 gpt2,value,pitch_turboquant,4,4.5,0.008993044600211931
@@ -65,6 +97,13 @@ gpt2,value,pitch_turboquant,5,5.5,0.0023589453228634047
 gpt2,value,pitch_turboquant,6,6.5,0.0006065234258544957
 gpt2,value,pitch_turboquant,7,7.5,0.0001528443148270127
 gpt2,value,pitch_turboquant,8,8.5,3.8446408565609185e-05
+gpt2,value,turboquant_fp16_norm,2,2.25,0.1128685272348229
+gpt2,value,turboquant_fp16_norm,3,3.25,0.03288665583806507
+gpt2,value,turboquant_fp16_norm,4,4.25,0.008993210457571113
+gpt2,value,turboquant_fp16_norm,5,5.25,0.002358909337003133
+gpt2,value,turboquant_fp16_norm,6,6.25,0.0006065456025514048
+gpt2,value,turboquant_fp16_norm,7,7.25,0.0001528832777303215
+gpt2,value,turboquant_fp16_norm,8,8.25,3.847704517798872e-05
 gpt2,value,pitch_polarquant,2,2.5,0.24222976567671906
 gpt2,value,pitch_polarquant,3,3.5,0.05724229884512174
 gpt2,value,pitch_polarquant,4,4.5,0.014312343443499343
@@ -79,9 +118,6 @@ gpt2,value,pitch_polarquant_seed_per_vector,5,6.0,0.0035337236098880254
 gpt2,value,pitch_polarquant_seed_per_vector,6,7.0,0.0008866274796156226
 gpt2,value,pitch_polarquant_seed_per_vector,7,8.0,0.00022097796493801311
 gpt2,value,pitch_polarquant_seed_per_vector,8,9.0,5.5149579063004256e-05
-gpt2,value,legacy_turbo_minmax_residual,3,6.0,0.010500699531296311
-gpt2,value,legacy_turbo_minmax_residual,4,7.0,0.002303014707260524
-gpt2,value,legacy_turbo_minmax_residual,8,11.0,7.973076786896192e-06
 gpt2,value,polar_recursive_prototype,"(2, 1)",1.9844,0.26872860759153405
 gpt2,value,polar_recursive_prototype,"(3, 2)",2.9688,0.07164866160343805
 gpt2,value,polar_recursive_prototype,"(4, 2)",3.4688,0.034380389414936395
@@ -103,6 +139,20 @@ Qwen/Qwen2.5-0.5B,key,rotate_rtn,5,6.0,0.0017726650141784799
 Qwen/Qwen2.5-0.5B,key,rotate_rtn,6,7.0,0.00042913703890366806
 Qwen/Qwen2.5-0.5B,key,rotate_rtn,7,8.0,0.00010518005927182727
 Qwen/Qwen2.5-0.5B,key,rotate_rtn,8,9.0,2.629525495927945e-05
+Qwen/Qwen2.5-0.5B,key,naive_rtn_fp16,2,2.5,0.34959207037875545
+Qwen/Qwen2.5-0.5B,key,naive_rtn_fp16,3,3.5,0.07041349597563819
+Qwen/Qwen2.5-0.5B,key,naive_rtn_fp16,4,4.5,0.014395100535670927
+Qwen/Qwen2.5-0.5B,key,naive_rtn_fp16,5,5.5,0.0033713778457501987
+Qwen/Qwen2.5-0.5B,key,naive_rtn_fp16,6,6.5,0.000833008424861001
+Qwen/Qwen2.5-0.5B,key,naive_rtn_fp16,7,7.5,0.00020351772583328495
+Qwen/Qwen2.5-0.5B,key,naive_rtn_fp16,8,8.5,5.031107758089713e-05
+Qwen/Qwen2.5-0.5B,key,rotate_rtn_fp16,2,2.5,0.19273232005200674
+Qwen/Qwen2.5-0.5B,key,rotate_rtn_fp16,3,3.5,0.03506502174621993
+Qwen/Qwen2.5-0.5B,key,rotate_rtn_fp16,4,4.5,0.007596818594520216
+Qwen/Qwen2.5-0.5B,key,rotate_rtn_fp16,5,5.5,0.0017728188162809979
+Qwen/Qwen2.5-0.5B,key,rotate_rtn_fp16,6,6.5,0.00042918421860345586
+Qwen/Qwen2.5-0.5B,key,rotate_rtn_fp16,7,7.5,0.00010522028082572037
+Qwen/Qwen2.5-0.5B,key,rotate_rtn_fp16,8,8.5,2.6304432579082805e-05
 Qwen/Qwen2.5-0.5B,key,pitch_turboquant,2,2.5,0.1106353258983836
 Qwen/Qwen2.5-0.5B,key,pitch_turboquant,3,3.5,0.032254514096785855
 Qwen/Qwen2.5-0.5B,key,pitch_turboquant,4,4.5,0.008856113148606404
@@ -110,6 +160,13 @@ Qwen/Qwen2.5-0.5B,key,pitch_turboquant,5,5.5,0.0022951481079333744
 Qwen/Qwen2.5-0.5B,key,pitch_turboquant,6,6.5,0.0005944605691168294
 Qwen/Qwen2.5-0.5B,key,pitch_turboquant,7,7.5,0.00015062251746219066
 Qwen/Qwen2.5-0.5B,key,pitch_turboquant,8,8.5,3.7957777626631256e-05
+Qwen/Qwen2.5-0.5B,key,turboquant_fp16_norm,2,2.25,0.11063541135394077
+Qwen/Qwen2.5-0.5B,key,turboquant_fp16_norm,3,3.25,0.03225451646462218
+Qwen/Qwen2.5-0.5B,key,turboquant_fp16_norm,4,4.25,0.008856199352945522
+Qwen/Qwen2.5-0.5B,key,turboquant_fp16_norm,5,5.25,0.0022952186755651823
+Qwen/Qwen2.5-0.5B,key,turboquant_fp16_norm,6,6.25,0.0005944975432678443
+Qwen/Qwen2.5-0.5B,key,turboquant_fp16_norm,7,7.25,0.0001506889282324844
+Qwen/Qwen2.5-0.5B,key,turboquant_fp16_norm,8,8.25,3.800026914266011e-05
 Qwen/Qwen2.5-0.5B,key,pitch_polarquant,2,2.5,0.24385185531267936
 Qwen/Qwen2.5-0.5B,key,pitch_polarquant,3,3.5,0.05706698319844243
 Qwen/Qwen2.5-0.5B,key,pitch_polarquant,4,4.5,0.01401265057872127
@@ -124,9 +181,6 @@ Qwen/Qwen2.5-0.5B,key,pitch_polarquant_seed_per_vector,5,6.0,0.00353395190740972
 Qwen/Qwen2.5-0.5B,key,pitch_polarquant_seed_per_vector,6,7.0,0.0008778325305213541
 Qwen/Qwen2.5-0.5B,key,pitch_polarquant_seed_per_vector,7,8.0,0.00021952734115113752
 Qwen/Qwen2.5-0.5B,key,pitch_polarquant_seed_per_vector,8,9.0,5.475623205586028e-05
-Qwen/Qwen2.5-0.5B,key,legacy_turbo_minmax_residual,3,6.0,0.010134154219243798
-Qwen/Qwen2.5-0.5B,key,legacy_turbo_minmax_residual,4,7.0,0.002206348033832733
-Qwen/Qwen2.5-0.5B,key,legacy_turbo_minmax_residual,8,11.0,7.652680557659602e-06
 Qwen/Qwen2.5-0.5B,key,polar_recursive_prototype,"(2, 1)",1.9844,0.28011719625198706
 Qwen/Qwen2.5-0.5B,key,polar_recursive_prototype,"(3, 2)",2.9688,0.07697750032645702
 Qwen/Qwen2.5-0.5B,key,polar_recursive_prototype,"(4, 2)",3.4688,0.03952622481331395
@@ -148,6 +202,20 @@ Qwen/Qwen2.5-0.5B,value,rotate_rtn,5,6.0,0.0018005653858290695
 Qwen/Qwen2.5-0.5B,value,rotate_rtn,6,7.0,0.00043716612232810073
 Qwen/Qwen2.5-0.5B,value,rotate_rtn,7,8.0,0.00010745533556431721
 Qwen/Qwen2.5-0.5B,value,rotate_rtn,8,9.0,2.67217109374877e-05
+Qwen/Qwen2.5-0.5B,value,naive_rtn_fp16,2,2.5,0.2986510878613429
+Qwen/Qwen2.5-0.5B,value,naive_rtn_fp16,3,3.5,0.05458170041755621
+Qwen/Qwen2.5-0.5B,value,naive_rtn_fp16,4,4.5,0.011821990958790498
+Qwen/Qwen2.5-0.5B,value,naive_rtn_fp16,5,5.5,0.0027654774277310404
+Qwen/Qwen2.5-0.5B,value,naive_rtn_fp16,6,6.5,0.00067053912483317
+Qwen/Qwen2.5-0.5B,value,naive_rtn_fp16,7,7.5,0.00016529838978276
+Qwen/Qwen2.5-0.5B,value,naive_rtn_fp16,8,8.5,4.094057484357152e-05
+Qwen/Qwen2.5-0.5B,value,rotate_rtn_fp16,2,2.5,0.19451128521487865
+Qwen/Qwen2.5-0.5B,value,rotate_rtn_fp16,3,3.5,0.035470044277828065
+Qwen/Qwen2.5-0.5B,value,rotate_rtn_fp16,4,4.5,0.007707934933940079
+Qwen/Qwen2.5-0.5B,value,rotate_rtn_fp16,5,5.5,0.0018006229217730984
+Qwen/Qwen2.5-0.5B,value,rotate_rtn_fp16,6,6.5,0.0004371951300431709
+Qwen/Qwen2.5-0.5B,value,rotate_rtn_fp16,7,7.5,0.00010745438140247176
+Qwen/Qwen2.5-0.5B,value,rotate_rtn_fp16,8,8.5,2.6735864370526873e-05
 Qwen/Qwen2.5-0.5B,value,pitch_turboquant,2,2.5,0.11271659588196721
 Qwen/Qwen2.5-0.5B,value,pitch_turboquant,3,3.5,0.03283523209231665
 Qwen/Qwen2.5-0.5B,value,pitch_turboquant,4,4.5,0.008998405003155048
@@ -155,6 +223,13 @@ Qwen/Qwen2.5-0.5B,value,pitch_turboquant,5,5.5,0.002362672220063829
 Qwen/Qwen2.5-0.5B,value,pitch_turboquant,6,6.5,0.0006062405448027897
 Qwen/Qwen2.5-0.5B,value,pitch_turboquant,7,7.5,0.00015241462760868369
 Qwen/Qwen2.5-0.5B,value,pitch_turboquant,8,8.5,3.874472822149397e-05
+Qwen/Qwen2.5-0.5B,value,turboquant_fp16_norm,2,2.25,0.11271693518629357
+Qwen/Qwen2.5-0.5B,value,turboquant_fp16_norm,3,3.25,0.03283514655651356
+Qwen/Qwen2.5-0.5B,value,turboquant_fp16_norm,4,4.25,0.008998355133719532
+Qwen/Qwen2.5-0.5B,value,turboquant_fp16_norm,5,5.25,0.0023626520818555994
+Qwen/Qwen2.5-0.5B,value,turboquant_fp16_norm,6,6.25,0.0006062782935915855
+Qwen/Qwen2.5-0.5B,value,turboquant_fp16_norm,7,7.25,0.00015246644126952816
+Qwen/Qwen2.5-0.5B,value,turboquant_fp16_norm,8,8.25,3.879877135982239e-05
 Qwen/Qwen2.5-0.5B,value,pitch_polarquant,2,2.5,0.24368356394823845
 Qwen/Qwen2.5-0.5B,value,pitch_polarquant,3,3.5,0.057018380286439
 Qwen/Qwen2.5-0.5B,value,pitch_polarquant,4,4.5,0.01410526646890884
@@ -169,9 +244,6 @@ Qwen/Qwen2.5-0.5B,value,pitch_polarquant_seed_per_vector,5,6.0,0.003542837068563
 Qwen/Qwen2.5-0.5B,value,pitch_polarquant_seed_per_vector,6,7.0,0.0008841133438927401
 Qwen/Qwen2.5-0.5B,value,pitch_polarquant_seed_per_vector,7,8.0,0.00021995039709761307
 Qwen/Qwen2.5-0.5B,value,pitch_polarquant_seed_per_vector,8,9.0,5.4770899784173634e-05
-Qwen/Qwen2.5-0.5B,value,legacy_turbo_minmax_residual,3,6.0,0.010304888641543853
-Qwen/Qwen2.5-0.5B,value,legacy_turbo_minmax_residual,4,7.0,0.002246197588693112
-Qwen/Qwen2.5-0.5B,value,legacy_turbo_minmax_residual,8,11.0,7.771485746658847e-06
 Qwen/Qwen2.5-0.5B,value,polar_recursive_prototype,"(2, 1)",1.9844,0.27209344593836327
 Qwen/Qwen2.5-0.5B,value,polar_recursive_prototype,"(3, 2)",2.9688,0.07178988333821663
 Qwen/Qwen2.5-0.5B,value,polar_recursive_prototype,"(4, 2)",3.4688,0.0344085900081895

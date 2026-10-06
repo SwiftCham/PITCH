@@ -6,9 +6,11 @@ import pitch_reference as R
 
 F32 = 32
 
-def minmax_rtn(Y, b):
+def minmax_rtn(Y, b, fp16=False):
     L = 2 ** b - 1
     lo = Y.min(1, keepdims=True); hi = Y.max(1, keepdims=True)
+    if fp16:                                   # range stored as two fp16 values; clipping absorbs the rounding
+        lo = lo.astype(np.float16).astype(np.float64); hi = hi.astype(np.float16).astype(np.float64)
     sc = (hi - lo) / L; sc[sc == 0] = 1.0
     return np.clip(np.round((Y - lo) / sc), 0, L) * sc + lo
 
@@ -19,6 +21,14 @@ def naive_rtn(X, b):
 def rotate_rtn(X, b, seed=R.DEFAULT_SEED):
     return R.unrotate(minmax_rtn(R.rotate(X, seed), b), seed), b + 2 * F32 / X.shape[1]
 
+F16 = 16
+
+def naive_rtn_fp16(X, b):
+    return minmax_rtn(X, b, fp16=True), b + 2 * F16 / X.shape[1]
+
+def rotate_rtn_fp16(X, b, seed=R.DEFAULT_SEED):
+    return R.unrotate(minmax_rtn(R.rotate(X, seed), b, fp16=True), seed), b + 2 * F16 / X.shape[1]
+
 def pitch_method(name):
     def run(X, b):
         codes, scales = R.ENCODERS[name](X, b)
@@ -26,22 +36,15 @@ def pitch_method(name):
         return Xh, R.bits_per_coordinate(X.shape[1], b)
     return run
 
+
+def turbo_fp16_norm(X, b):
+    """TurboQuant with its norm stored in fp16 (b + 16/d): the same accounting as the fp16-range baselines."""
+    codes, norms = R.ENCODERS["turboQuant"](X, b)
+    return R.DECODERS["turboQuant"](codes, norms.astype(np.float16).astype(np.float64), b), b + 16 / X.shape[1]
+
 def polar_seed_per_vector(X, b):
     Xh, bpc = pitch_method("polarQuant")(X, b)
     return Xh, bpc + F32 / X.shape[1]
-
-def legacy_turbo_minmax_residual(X, b, seed=R.DEFAULT_SEED):
-    """Pre-Step-2 kernel: min/max rounding + per-coordinate residual sign * RMS.
-    Stored b+1 bits/coord plus scale, offset, residualScale and a per-vector seed."""
-    d = X.shape[1]
-    Y = R.rotate(X, seed)
-    L = 2 ** b - 1
-    lo = Y.min(1, keepdims=True); hi = Y.max(1, keepdims=True)
-    sc = (hi - lo) / L; sc[sc == 0] = 1.0
-    dq = np.clip(np.round((Y - lo) / sc), 0, L) * sc + lo
-    r = Y - dq
-    rs = np.sqrt((r ** 2).mean(1, keepdims=True))
-    return R.unrotate(dq + np.where(r >= 0, rs, -rs), seed), b + 1 + 4 * F32 / d
 
 # ---- recursive PolarQuant prototype (Step 3) -------------------------------
 def _polar_forward(Y):
@@ -89,10 +92,12 @@ ALL_BITS = list(R.SUPPORTED_BITS)
 METHODS = {
     "naive_rtn":                         (naive_rtn, ALL_BITS),
     "rotate_rtn":                        (rotate_rtn, ALL_BITS),
+    "naive_rtn_fp16":                    (naive_rtn_fp16, ALL_BITS),
+    "rotate_rtn_fp16":                   (rotate_rtn_fp16, ALL_BITS),
     "pitch_turboquant":                  (pitch_method("turboQuant"), ALL_BITS),
+    "turboquant_fp16_norm":              (turbo_fp16_norm, ALL_BITS),
     "pitch_polarquant":                  (pitch_method("polarQuant"), ALL_BITS),
     "pitch_polarquant_seed_per_vector":  (polar_seed_per_vector, ALL_BITS),
-    "legacy_turbo_minmax_residual":      (legacy_turbo_minmax_residual, [3, 4, 8]),
     "polar_recursive_prototype":         (polar_recursive_prototype, [(2, 1), (3, 2), (4, 2), (4, 3), (5, 4), (6, 5), (7, 6)]),
 }
 
