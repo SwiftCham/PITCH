@@ -1,5 +1,7 @@
 # PITCH. [![DOI](https://zenodo.org/badge/1264261940.svg)](https://doi.org/10.5281/zenodo.23065071)
 
+![alt text](https://github.com/SwiftCham/PITCH/blob/main/PITCHLogo.png)
+
 **Parallel, In-memory Transformer Compression Header**: KV-cache quantization for Apple Silicon, written in Swift and Metal.
 
 PITCH compresses a transformer's key–value cache on the GPU. It implements three quantizers as hand-written Metal compute kernels behind a Swift API that works inside a model's own GPU buffers and command buffers:
